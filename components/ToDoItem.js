@@ -9,8 +9,8 @@ import {
 import Checkbox from "./Checkbox";
 import Colors from "../constants/Colors";
 
-const EditableText = ({ isChecked, onChangeText, text, isNewItem }) => {
-  const [isEditMode, setEditMode] = useState(isNewItem);
+const EditableText = ({ isChecked, onChangeText, text, ...props }) => {
+  const [isEditMode, setEditMode] = useState(props.new);
   return (
     <TouchableOpacity
       style={{ flex: 1 }}
@@ -27,7 +27,10 @@ const EditableText = ({ isChecked, onChangeText, text, isNewItem }) => {
           onSubmitEditing={() => {}}
           maxLength={30}
           style={styles.input}
-          onBlur={() => setEditMode(false)}
+          onBlur={() => {
+            props.onBlur && props.onBlur();
+            setEditMode(false);
+          }}
         />
       ) : (
         <Text
@@ -52,7 +55,7 @@ export default ({
   onChecked,
   onChangeText,
   onDelete,
-  isNewItem,
+  ...props
 }) => {
   return (
     <View style={styles.container}>
@@ -62,7 +65,7 @@ export default ({
           text={text}
           onChangeText={onChangeText}
           isChecked={isChecked}
-          isNewItem={isNewItem}
+          {...props}
         />
       </View>
       <TouchableOpacity onPress={onDelete}>

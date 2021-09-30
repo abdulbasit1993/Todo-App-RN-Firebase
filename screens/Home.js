@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState } from "react";
+import React, { useLayoutEffect, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,13 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Colors from "../constants/Colors";
+import {
+  onSnapshot,
+  addDoc,
+  removeDoc,
+  updateDoc,
+} from "../services/collections";
+import { firestore, auth } from "firebase";
 
 // Applied object destructuring in below line, replaced (props) with ({ title })
 const ListButton = ({ title, color, onPress, onDelete, onOptions }) => {
@@ -53,25 +60,45 @@ const renderAddListIcon = (navigation, addItemToLists) => {
 };
 
 export default ({ navigation }) => {
-  const [lists, setLists] = useState([
-    { title: "School", color: Colors.red },
-    { title: "Work", color: Colors.green },
-    { title: "Fun", color: Colors.blue },
-  ]);
+  const [lists, setLists] = useState([]);
+  const listsRef = firestore()
+    .collection("users")
+    .doc(auth().currentUser.uid)
+    .collection("lists");
 
-  const addItemToLists = (item) => {
-    lists.push(item);
-    setLists([...lists]);
+  useEffect(() => {
+    onSnapshot(
+      listsRef,
+      (newLists) => {
+        setLists(newLists);
+      },
+      {
+        sort: (a, b) => {
+          if (a.index < b.index) {
+            return -1;
+          }
+
+          if (a.index > b.index) {
+            return 1;
+          }
+
+          return 0;
+        },
+      }
+    );
+  }, []);
+
+  const addItemToLists = ({ title, color }) => {
+    const index = lists.length > 1 ? lists[lists.length - 1].index + 1 : 0;
+    addDoc(listsRef, { title, color, index });
   };
 
-  const removeItemFromLists = (index) => {
-    lists.splice(index, 1);
-    setLists([...lists]);
+  const removeItemFromLists = (id) => {
+    removeDoc(listsRef, id);
   };
 
-  const updateItemFromLists = (index, item) => {
-    lists[index] = item;
-    setLists([...lists]);
+  const updateItemFromLists = (id, item) => {
+    updateDoc(listsRef, id, item);
   };
 
   useLayoutEffect(() => {
@@ -84,23 +111,24 @@ export default ({ navigation }) => {
     <View style={styles.container}>
       <FlatList
         data={lists}
-        renderItem={({ item: { title, color }, index }) => {
+        renderItem={({ item: { title, color, id, index } }) => {
           return (
             <ListButton
               title={title}
               color={color}
               navigation={navigation}
               onPress={() => {
-                navigation.navigate("ToDoList", { title, color });
+                navigation.navigate("ToDoList", { title, color, listId: id });
               }}
               onOptions={() => {
                 navigation.navigate("Edit", {
                   title,
                   color,
-                  saveChanges: (item) => updateItemFromLists(index, item),
+                  saveChanges: (newItem) =>
+                    updateItemFromLists(id, { index, ...newItem }),
                 });
               }}
-              onDelete={() => removeItemFromLists(index)}
+              onDelete={() => removeItemFromLists(id)}
             />
           );
         }}

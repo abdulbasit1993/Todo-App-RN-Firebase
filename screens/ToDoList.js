@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect } from "react";
+import React, { useState, useLayoutEffect, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,32 +8,60 @@ import {
 } from "react-native";
 import ToDoItem from "../components/ToDoItem";
 import Colors from "../constants/Colors";
+import {
+  onSnapshot,
+  addDoc,
+  removeDoc,
+  updateDoc,
+} from "../services/collections";
+import { firestore, auth } from "firebase";
 
 const renderAddListIcon = (addItem) => {
   return (
-    <TouchableOpacity
-      onPress={() => addItem({ text: "", isChecked: false, isNewItem: true })}
-    >
+    <TouchableOpacity onPress={() => addItem()}>
       <Text style={styles.icon}>+</Text>
     </TouchableOpacity>
   );
 };
 
-export default ({ navigation }) => {
-  const [toDoItems, setToDoItems] = useState([]);
+export default ({ navigation, route }) => {
+  let [toDoItems, setToDoItems] = useState([]);
+  const [newItem, setNewItem] = useState();
 
-  const addItemToLists = (item) => {
-    toDoItems.push(item);
-    setToDoItems([...toDoItems]);
+  const toDoItemsRef = firestore()
+    .collection("users")
+    .doc(auth().currentUser.uid)
+    .collection("lists")
+    .doc(route.params.listId)
+    .collection("todoItems");
+
+  useEffect(() => {
+    onSnapshot(
+      toDoItemsRef,
+      (newToDoItems) => {
+        setToDoItems(newToDoItems);
+      },
+      {
+        sort: (a, b) => {
+          if (a.isChecked && !b.isChecked) {
+            return 1;
+          }
+          if (b.isChecked && !a.isChecked) {
+            return -1;
+          }
+
+          return 0;
+        },
+      }
+    );
+  }, []);
+
+  const addItemToLists = () => {
+    setNewItem({ text: "", isChecked: false, new: true });
   };
 
   const removeItemFromLists = (index) => {
     toDoItems.splice(index, 1);
-    setToDoItems([...toDoItems]);
-  };
-
-  const updateItem = (index, item) => {
-    toDoItems[index] = item;
     setToDoItems([...toDoItems]);
   };
 
@@ -43,28 +71,54 @@ export default ({ navigation }) => {
     });
   });
 
+  if (newItem) {
+    toDoItems = [newItem, ...toDoItems];
+  }
+
   return (
     <View style={styles.container}>
       <FlatList
         data={toDoItems}
-        renderItem={({ item: { text, isChecked, isNewItem }, index }) => {
+        renderItem={({ item: { id, text, isChecked, ...params }, index }) => {
           return (
             <ToDoItem
+              {...params}
               text={text}
               isChecked={isChecked}
-              isNewItem={isNewItem}
               onChecked={() => {
-                const toDoItem = toDoItems[index];
-                toDoItem.isChecked = !isChecked;
-                updateItem(index, toDoItem);
+                let data = { text, isChecked: !isChecked };
+                if (id) {
+                  data.id = id;
+                }
+                addDoc(toDoItemsRef, data);
               }}
               onChangeText={(newText) => {
-                const toDoItem = toDoItems[index];
-                toDoItem.text = newText;
-                updateItem(index, toDoItem);
+                if (params.new) {
+                  setNewItem({
+                    text: newText,
+                    isChecked,
+                    new: params.new,
+                  });
+                } else {
+                  toDoItems[index].text = newText;
+                  setToDoItems([...toDoItems]);
+                }
               }}
               onDelete={() => {
-                removeItemFromLists(index);
+                params.new ? setNewItem(null) : removeItemFromLists(index);
+                id && removeDoc(toDoItemsRef, id);
+              }}
+              onBlur={() => {
+                if (text.length > 1) {
+                  let data = { text, isChecked };
+                  if (id) {
+                    data.id = id;
+                  }
+                  addDoc(toDoItemsRef, data);
+                  params.new && setNewItem(null);
+                } else {
+                  params.new ? setNewItem(null) : removeItemFromLists(index);
+                }
               }}
             />
           );
