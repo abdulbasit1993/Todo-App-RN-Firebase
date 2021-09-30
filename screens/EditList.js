@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import Colors from "../constants/Colors";
 import ColorSelector from "../components/ColorSelector";
+import Button from "../components/Button";
 
 const colorList = [
   "blue",
@@ -50,7 +51,7 @@ export default ({ navigation, route }) => {
           }}
           placeholder={"New List Name"}
           maxLength={30}
-          style={[styles.input, { outline: "none" }]}
+          style={styles.input}
         />
         <Text style={styles.label}>Choose Color</Text>
         <ColorSelector
@@ -62,8 +63,8 @@ export default ({ navigation, route }) => {
           colorOptions={colorList}
         />
       </View>
-      <TouchableOpacity
-        style={styles.saveButton}
+      <Button
+        text="Save"
         onPress={() => {
           if (title.length > 1) {
             route.params.saveChanges({ title, color });
@@ -72,11 +73,7 @@ export default ({ navigation, route }) => {
             setValidity(false);
           }
         }}
-      >
-        <Text style={{ color: "white", fontSize: 24, fontWeight: "bold" }}>
-          Save
-        </Text>
-      </TouchableOpacity>
+      />
     </View>
   );
 };
